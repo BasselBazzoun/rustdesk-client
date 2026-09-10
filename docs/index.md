@@ -247,6 +247,45 @@ window.RUSTDESK_CONFIG = {
     </div>
   </section>
 
+  <!-- Compatibility / Troubleshooting -->
+  <section class="section" id="compatibility">
+    <h2 class="section-title" data-i18n="compatibility.title">System Requirements</h2>
+
+    <div class="config-section">
+      <div class="instructions">
+        <h4><i class="ti ti-info-circle"></i> <span data-i18n="compatibility.linuxTitle">Linux</span></h4>
+        <p data-i18n-html="compatibility.linuxBody">
+          The .deb, .rpm and AppImage packages are built on Ubuntu 20.04 and require a 64-bit distribution
+          with glibc 2.31 or newer and libstdc++ GLIBCXX_3.4.28 or newer
+          (e.g. Ubuntu 20.04, Debian 11, Linux Mint 20 or newer).
+        </p>
+      </div>
+
+      <div class="instructions mt-1">
+        <h4><i class="ti ti-package"></i> <span data-i18n="compatibility.flatpakTitle">Flatpak</span></h4>
+        <p data-i18n-html="compatibility.flatpakBody">
+          The Flatpak bundle requires the <code>org.freedesktop.Platform/x86_64/24.08</code> runtime.
+          Install it first if it is not already on your system:
+        </p>
+        <pre class="config-string" style="white-space: pre-wrap;"><code>flatpak install flathub org.freedesktop.Platform/x86_64/24.08</code></pre>
+      </div>
+
+      <div class="instructions mt-1">
+        <h4><i class="ti ti-alert-triangle"></i> <span data-i18n="compatibility.troubleTitle">Troubleshooting</span></h4>
+        <ul>
+          <li data-i18n-html="compatibility.glibcError">
+            <strong>GLIBC_2.34 / GLIBCXX_3.4.29 not found:</strong>
+            Your distribution is older than the build baseline. Use the AppImage or Flatpak, or upgrade your system.
+          </li>
+          <li data-i18n-html="compatibility.flatpakError">
+            <strong>Flatpak runtime not found:</strong>
+            Add the Flathub remote and install the runtime first with the command above.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
   <noscript>
     <div class="page-note">
       Download links still work without JavaScript, but the recommended download panel, QR code, and copy buttons require it.
