@@ -263,6 +263,9 @@ jobs:
             xz-utils \
             zstd
 
+      - name: Checkout builder repo
+        uses: actions/checkout@v4
+
       - name: Free Disk Space (Ubuntu)
         if: ${{ inputs.use_github_runners }}
         uses: jlumbroso/free-disk-space@main
