@@ -230,10 +230,38 @@ jobs:
     needs: generate_bridge
     if: ${{ inputs.build_linux }}
     runs-on: ${{ fromJSON(inputs.use_github_runners && '["ubuntu-22.04"]' || '["self-hosted", "linux", "x64"]') }}
+    # Build inside an Ubuntu 20.04 container so the resulting .deb/.rpm is
+    # linked against glibc 2.31 / libstdc++ 3.4.28, which lets it run on
+    # older distributions such as Ubuntu 20.04 or Debian 11.
+    container:
+      image: ${{ inputs.use_github_runners && 'ubuntu:20.04' || null }}
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        TZ: Etc/UTC
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
+      # Use the newest compiler available on 20.04 that still keeps the
+      # libstdc++ baseline at GLIBCXX_3.4.28 (GCC 11 would introduce 3.4.29).
+      CC: gcc-10
+      CXX: g++-10
 
     steps:
-      - name: Checkout builder repo
-        uses: actions/checkout@v4
+      - name: Prepare Ubuntu 20.04 container environment
+        if: ${{ inputs.use_github_runners }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends \
+            ca-certificates \
+            curl \
+            git \
+            python3 \
+            sudo \
+            xz-utils \
+            zstd
 
       - name: Free Disk Space (Ubuntu)
         if: ${{ inputs.use_github_runners }}
@@ -263,9 +291,12 @@ jobs:
           path: |
             ${{ github.workspace }}/vcpkg
             ${{ github.workspace }}/vcpkg-cache
-          key: vcpkg-${{ runner.os }}-${{ env.VCPKG_COMMIT_ID }}
+          # Pin the cache to the focal (20.04) build environment so we do not
+          # accidentally restore prebuilt vcpkg binaries that were linked
+          # against a newer glibc/libstdc++ from an older ubuntu-22.04 build.
+          key: vcpkg-${{ runner.os }}-focal-${{ env.VCPKG_COMMIT_ID }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-
+            vcpkg-${{ runner.os }}-focal-
 
       - name: Prepare RustDesk
         uses: ./.github/actions/prepare-rustdesk
@@ -306,7 +337,9 @@ jobs:
             ca-certificates \
             build-essential \
             g++ \
+            g++-10 \
             gcc \
+            gcc-10 \
             pkg-config \
             cmake \
             make \
@@ -569,7 +602,12 @@ jobs:
           flatpak-builder --user --install-deps-from=flathub -y --force-clean --disable-rofiles-fuse --repo=repo ./build ./rustdesk.json
 
           version_safe="$(echo '${{ inputs.rustdesk_ref }}' | tr '/ ' '--')"
-          flatpak build-bundle ./repo "rustdesk-${version_safe}-x86_64.flatpak" com.rustdesk.RustDesk
+          # Embed the Flathub runtime repo URL so `flatpak install` can fetch
+          # the required org.freedesktop.Platform/x86_64/24.08 runtime when the
+          # user does not already have it configured.
+          flatpak build-bundle \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            ./repo "rustdesk-${version_safe}-x86_64.flatpak" com.rustdesk.RustDesk
           test -n "$(find . -maxdepth 1 -type f -name '*.flatpak' -print -quit)"
 
       - name: Upload Flatpak artifact

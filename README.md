@@ -150,7 +150,7 @@ Only include the files you want to override; missing ones will keep the upstream
 
 ## Build Environments
 
-- **Linux**: Ubuntu 22.04-based runner (GitHub-hosted or self-hosted)
+- **Linux**: Ubuntu 22.04 GitHub-hosted runner building inside an Ubuntu 20.04 container to keep the glibc 2.31 / libstdc++ 3.4.28 baseline compatible with older targets (self-hosted runners run directly on the host unless a container is configured).
 - **Windows**: Windows runner with LLVM, Rust, Flutter (GitHub-hosted or self-hosted)
 - **macOS**: macOS Sonoma (14+) self-hosted runner with Xcode, Homebrew, Rust, Flutter, CocoaPods
 - **Android**: Ubuntu 22.04 GitHub-hosted runner (no self-hosted setup required)

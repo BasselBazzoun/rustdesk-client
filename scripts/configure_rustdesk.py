@@ -396,6 +396,45 @@ def apply_links(source_dir: pathlib.Path, website_url: str, privacy_url: str) ->
     print("Link patching finished")
 
 
+def patch_rpm_dependencies(source_dir: pathlib.Path) -> None:
+    fedora_spec = source_dir / "res" / "rpm-flutter.spec"
+    suse_spec = source_dir / "res" / "rpm-flutter-suse.spec"
+
+    # Fedora/RHEL spec
+    replace_optional(
+        fedora_spec,
+        r"(Requires:\s+gtk3 libxcb libXfixes alsa-lib libva pam gstreamer1-plugins-base)(\n)",
+        r"\1, glibc >= 2.31, libstdc++ >= 10.2.1\2",
+        "fedora rpm runtime dependencies",
+    )
+
+    # openSUSE spec
+    replace_optional(
+        suse_spec,
+        r"(Requires:\s+gtk3 libxcb1 libXfixes3 alsa-utils libXtst6 libva2 pam gstreamer-plugins-base gstreamer-plugin-pipewire)(\n)",
+        r"\1, glibc >= 2.31, libstdc++6 >= 10.2.1\2",
+        "suse rpm runtime dependencies",
+    )
+
+
+def patch_deb_dependencies(source_dir: pathlib.Path) -> None:
+    build_py = source_dir / "build.py"
+    if not build_py.exists():
+        print("Skipped deb dependency patch; build.py not found")
+        return
+
+    # Insert minimum libc6/libstdc++6 into the .deb control template. This
+    # makes dpkg refuse to install the package on distributions that are too
+    # old to satisfy the glibc/libstdc++ baseline we build against
+    # (currently glibc 2.31 / GLIBCXX_3.4.28, i.e. Ubuntu 20.04 / Debian 11).
+    replace_optional(
+        build_py,
+        r"(libpam0g, gstreamer1\.0-pipewire)(%s)",
+        r"\1, libc6 (>= 2.31), libstdc++6 (>= 10.2.1)\2",
+        "deb runtime dependencies",
+    )
+
+
 def apply_flutter_titles(source_dir: pathlib.Path, app_name: str, company: str) -> None:
     if not app_name and not company:
         print("No app name or company provided; title patching skipped")
@@ -540,6 +579,9 @@ def main() -> int:
             website_url=website_url,
             privacy_url=privacy_url,
         )
+
+        patch_deb_dependencies(source_dir=source_dir)
+        patch_rpm_dependencies(source_dir=source_dir)
 
         apply_flutter_titles(source_dir=source_dir, app_name=app_name, company=company)
 
