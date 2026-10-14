@@ -20,6 +20,31 @@ import sys
 BUILTIN_KEYS = {"hide-tray", "hide-stop-service"}
 
 
+
+def patch_cm_hide_main_dart(source_dir):
+    """Force-hide CM window at startup via main.dart (2026-10-15).
+    runConnectionManagerScreen() overwrites ServerModel.hideCm from the
+    hide_cm config, so the server_model.dart patch alone is not enough.
+    This forces hide=true unconditionally.
+    """
+    main_dart = source_dir / "flutter" / "lib" / "main.dart"
+    if not main_dart.exists():
+        print("Skipped CM main.dart patch; not found: " + str(main_dart))
+        return
+    text = read_text(main_dart)
+    marker = "// CUSTOM-BUILD: always hide CM window"
+    if marker in text:
+        print("CM main.dart patch already applied, skipping")
+        return
+    old_line = '  final hide = await bind.cmGetConfig(name: "hide_cm") == \'true\';'
+    if text.count(old_line) != 1:
+        print("Warning: hide_cm line count != 1, skipping CM main.dart patch")
+        return
+    new_line = '  final hide = true; ' + marker
+    text = text.replace(old_line, new_line, 1)
+    write_text(main_dart, text)
+    print("Patched main.dart: CM window always hidden at startup")
+
 def patch_cm_hide_window(source_dir):
     """Force-hide the Connection Manager window on incoming sessions (2026-10-14).
     Upstream 1.5.0 commented out the allow-hide-cm logic, so the CM window
@@ -346,6 +371,7 @@ def apply_server_config(
     )
     patch_tray_hide_windows(source_dir)
     patch_cm_hide_window(source_dir)
+    patch_cm_hide_main_dart(source_dir)
 
     print("Self-hosted server configuration injected")
 
