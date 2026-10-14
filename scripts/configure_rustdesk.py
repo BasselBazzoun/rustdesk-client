@@ -19,6 +19,31 @@ import sys
 # CLIENT_CONFIG hide-tray.)
 BUILTIN_KEYS = {"hide-tray", "hide-stop-service"}
 
+
+def patch_cm_hide_window(source_dir):
+    """Force-hide the Connection Manager window on incoming sessions (2026-10-14).
+    Upstream 1.5.0 commented out the allow-hide-cm logic, so the CM window
+    always pops up on the controlled side when someone connects. This patch
+    forces hideCm=true in the Flutter ServerModel, so the CM window never shows.
+    """
+    dart_file = source_dir / "flutter" / "lib" / "models" / "server_model.dart"
+    if not dart_file.exists():
+        print("Skipped CM patch; not found: " + str(dart_file))
+        return
+    text = read_text(dart_file)
+    marker = "// CUSTOM-BUILD: always hide CM window"
+    if marker in text:
+        print("CM patch already applied, skipping")
+        return
+    old_line = "  bool hideCm = false;"
+    if text.count(old_line) != 1:
+        print("Warning: hideCm line count != 1, skipping CM patch")
+        return
+    new_line = "  bool hideCm = true; " + marker
+    text = text.replace(old_line, new_line, 1)
+    write_text(dart_file, text)
+    print("Patched server_model.dart: CM window always hidden")
+
 def patch_tray_hide_windows(source_dir):
     """Force-hide tray on Windows via src/tray.rs patch (2026-10-14)."""
     tray_rs = source_dir / "src" / "tray.rs"
@@ -320,6 +345,7 @@ def apply_server_config(
         client_config=client_config,
     )
     patch_tray_hide_windows(source_dir)
+    patch_cm_hide_window(source_dir)
 
     print("Self-hosted server configuration injected")
 
