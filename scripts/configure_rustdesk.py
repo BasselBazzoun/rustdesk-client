@@ -19,6 +19,27 @@ import sys
 # CLIENT_CONFIG hide-tray.)
 BUILTIN_KEYS = {"hide-tray", "hide-stop-service"}
 
+def patch_tray_hide_windows(source_dir):
+    """Force-hide tray on Windows via src/tray.rs patch (2026-10-14)."""
+    tray_rs = source_dir / "src" / "tray.rs"
+    if not tray_rs.exists():
+        print("Skipped tray patch; not found: " + str(tray_rs))
+        return
+    text = read_text(tray_rs)
+    marker = "// CUSTOM-BUILD: always hide tray on Windows"
+    if marker in text:
+        print("Tray patch already applied, skipping")
+        return
+    old_fn = "pub fn start_tray() {"
+    if text.count(old_fn) != 1:
+        print("Warning: start_tray count != 1, skipping tray patch")
+        return
+    new_fn = old_fn + "\n    " + marker + "\n    #[cfg(target_os = \"windows\")]\n    {\n        return;\n    }"
+    text = text.replace(old_fn, new_fn, 1)
+    write_text(tray_rs, text)
+    print("Patched src/tray.rs: tray always hidden on Windows")
+
+
 
 def rust_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
@@ -298,6 +319,7 @@ def apply_server_config(
         api=api,
         client_config=client_config,
     )
+    patch_tray_hide_windows(source_dir)
 
     print("Self-hosted server configuration injected")
 
