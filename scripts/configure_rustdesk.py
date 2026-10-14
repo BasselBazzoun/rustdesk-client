@@ -9,6 +9,16 @@ import re
 import shutil
 import sys
 
+# RustDesk reads a few options ONLY from BUILTIN_SETTINGS (populated at
+# startup from the signed custom-client config), never from DEFAULT_SETTINGS.
+# src/tray.rs::start_tray() gates the tray icon on
+# get_builtin_option("hide-tray"). If hide-tray lands in DEFAULT_SETTINGS
+# (where inject_default_settings() puts everything), the tray icon still
+# shows. So these keys must be split out into BUILTIN_SETTINGS.
+# (Root-caused 2026-10-14: tray icon survived --option hide-tray Y and
+# CLIENT_CONFIG hide-tray.)
+BUILTIN_KEYS = {"hide-tray", "hide-stop-service"}
+
 
 def rust_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
@@ -196,12 +206,16 @@ def inject_default_settings(
     if api:
         entries.append(("api-server", api))
 
+    builtin_entries: list[tuple[str, str]] = []
     if client_config:
         try:
             extra = json.loads(client_config)
             if isinstance(extra, dict):
                 for k, v in extra.items():
-                    entries.append((str(k), str(v)))
+                    if str(k) in BUILTIN_KEYS:
+                        builtin_entries.append((str(k), str(v)))
+                    else:
+                        entries.append((str(k), str(v)))
             else:
                 print(
                     "Warning: CLIENT_CONFIG is not a JSON object; ignoring",
@@ -229,6 +243,25 @@ def inject_default_settings(
         replacement,
         "DEFAULT_SETTINGS",
     )
+
+    # hide-tray / hide-stop-service must live in BUILTIN_SETTINGS, otherwise
+    # src/tray.rs never sees them (it only calls get_builtin_option()).
+    if builtin_entries:
+        rust_builtin_entries = ", ".join(
+            f'("{rust_string(k)}".to_owned(), "{rust_string(v)}".to_owned())'
+            for k, v in builtin_entries
+        )
+        builtin_replacement = (
+            "pub static ref BUILTIN_SETTINGS: RwLock<HashMap<String, String>> = "
+            f"RwLock::new(HashMap::from([{rust_builtin_entries}]));"
+        )
+        replace_one(
+            config_file,
+            r"pub\s+static\s+ref\s+BUILTIN_SETTINGS\s*:\s*RwLock\s*<\s*HashMap\s*<\s*String\s*,\s*String\s*>\s*>\s*=\s*Default::default\s*\(\s*\)\s*;",
+            builtin_replacement,
+            "BUILTIN_SETTINGS",
+        )
+        print(f"Injected {len(builtin_entries)} builtin setting(s) into BUILTIN_SETTINGS")
 
 
 def apply_server_config(
