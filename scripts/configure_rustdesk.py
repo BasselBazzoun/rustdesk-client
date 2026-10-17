@@ -369,9 +369,9 @@ def apply_server_config(
         api=api,
         client_config=client_config,
     )
-    patch_tray_hide_windows(source_dir)
-    patch_cm_hide_window(source_dir)
-    patch_cm_hide_main_dart(source_dir)
+ # patch_tray_hide_windows(source_dir)
+# patch_cm_hide_window(source_dir)
+# patch_cm_hide_main_dart(source_dir)
 
     print("Self-hosted server configuration injected")
 
